@@ -51,6 +51,18 @@ The initial backend foundation has been built with the following components unde
 5. **Configuration (`application.properties` in `resources` package):**
    * Configures local MySQL database connection with `ddl-auto=update` and dialect properties.
 
+6. **Real-Time Equipment Booking & Conflict Validation (Feature 2):**
+   * **Database Schema Specifications (`BookingRequest.java` in `model` package):**
+     * Represents a booking request entity.
+     * Fields: `id`, `resourceId` (foreign key reference to Resource), `requesterName`, `userRole` (e.g., `LECTURER`, `STUDENT`), `requestedQuantity`, `startTime`, `endTime`, and `status` (e.g., `ALLOCATED`, `CONFLICT`).
+   * **Repository (`BookingRequestRepository.java` in `repository` package):**
+     * Extends `JpaRepository<BookingRequest, Long>`.
+   * **REST Controller & Logic (`EquipmentController.java` in `controller` package):**
+     * Exposes `POST /api/equipment/book`.
+     * Validates availability by checking if the resource exists and has enough inventory (`resource.getQuantity() >= request.getRequestedQuantity()`).
+     * If validation succeeds, subtracts the requested quantity from the resource, updates the resource, sets the request status to `"ALLOCATED"`, saves the request, and returns `200 OK`.
+     * If validation fails (insufficient inventory), sets the request status to `"CONFLICT"`, saves the booking request log, and returns `409 Conflict` with an error message: `"Insufficient inventory. Requested: X, Available: Y"`.
+
 ---
 
 ## Developer Guidelines
