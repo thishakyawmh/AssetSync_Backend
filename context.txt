@@ -1,0 +1,58 @@
+# University Resource Allocation System - Project Context
+
+## Project Overview
+This project is a University Resource Allocation System designed to manage both movable hardware equipment (e.g., projectors, cameras, speakers, etc.) and physical stationary locations (e.g., lecture halls, seminar rooms, auditoriums, etc.). 
+
+---
+
+## Core Modules
+
+### 1. Location Allocation Module (Batch Processing)
+Instead of traditional first-come-first-served fulfillment, venue bookings for locations are handled through batch processing:
+* **Booking Window:** Users (students and lecturers) submit requests up to 24 hours prior to the required time.
+* **Allocation Process:** The system collects all incoming requests and processes them at the 24-hour mark. It evaluates data such as attendee count, event type, and lecturer requirements to allocate the most suitable venue automatically.
+* **Notification:** Once allocated, requesters and attendees receive updates and notifications via an integrated system calendar and emails.
+
+### 2. Equipment Allocation Module (Real-Time Booking)
+Physical hardware devices require immediacy, which is supported by real-time transaction processing:
+* **Inventory Management:** Administrative staff can digitize and manage the physical hardware inventory, inputting detailed parameters such as asset categories, quality metrics, and total quantities.
+* **On-Demand Booking:** End-users can interact with dynamic, live availability timetables to instantly reserve and check out available hardware items.
+
+---
+
+## Core Features & Conflict Resolution
+
+* **Automated Alternatives Engine:** Instead of hard-rejecting booking requests when a conflict occurs or a resource is unavailable, the system queries the database to suggest viable alternatives (e.g., a similar testing device, or the requested room at a different time).
+* **Unified Central Dashboard:** A high-visibility, transparent visual dashboard displaying confirmed times, active asset locations, and event metadata to ensure complete institutional visibility.
+
+---
+
+## Implemented So Far (The Foundation & Resource Ledger)
+The initial backend foundation has been built with the following components under the package `com.innov8.AssetSync`:
+
+1. **Database Schema Specifications (`Resource.java` in `model` package):**
+   * A single unified entity representing both stationary locations and movable equipment.
+   * Fields: `id`, `resourceType` (Enum: `LOCATION`, `EQUIPMENT`), `name`, `category`, `capacity` (applied to Locations), `quantity` (applied to Equipment), and `qualityStatus` (applied to Equipment).
+   
+2. **Repository (`ResourceRepository.java` in `repository` package):**
+   * Extends `JpaRepository<Resource, Long>`.
+   * Includes custom derived query: `List<Resource> findByResourceType(Resource.ResourceType resourceType)`.
+
+3. **Database Seeder (`DatabaseSeeder.java` in `seeder` package):**
+   * Automatically seeds the database with dummy locations (Auditorium, Science Lab, Seminar Room) and equipment (Sony Camera, Mic Kit, Projector, VR Headsets) upon application startup if the repository is empty.
+
+4. **REST Controller (`ResourceController.java` in `controller` package):**
+   * Configured base mapping to `/api/resources`.
+   * Enabled CORS for Vite React frontend via `@CrossOrigin(origins = "http://localhost:5173")`.
+   * Endpoints:
+     * `GET /api/resources` -> Returns all resources.
+     * `GET /api/resources?type={type}` -> Returns resources filtered by `LOCATION` or `EQUIPMENT`.
+
+5. **Configuration (`application.properties` in `resources` package):**
+   * Configures local MySQL database connection with `ddl-auto=update` and dialect properties.
+
+---
+
+## Developer Guidelines
+> [!IMPORTANT]
+> To maintain clarity and alignment across the team, please ensure you update this document whenever you introduce new features, changes, or database schema modifications.
