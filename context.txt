@@ -63,6 +63,18 @@ The initial backend foundation has been built with the following components unde
      * If validation succeeds, subtracts the requested quantity from the resource, updates the resource, sets the request status to `"ALLOCATED"`, saves the request, and returns `200 OK`.
      * If validation fails (insufficient inventory), sets the request status to `"CONFLICT"`, saves the booking request log, and returns `409 Conflict` with an error message: `"Insufficient inventory. Requested: X, Available: Y"`.
 
+7. **24-Hour Batch Location Processor (Feature 3):**
+   * **Database Schema Specifications (`LocationRequest.java` and `Allocation.java` in `model` package):**
+     * `LocationRequest` holds location request details: `id`, `requestedCategory`, `requesterName`, `priority` (1: LECTURER, 2: STUDENT), `studentCount`, `startTime`, `endTime`, and `status` (default: `"PENDING"`).
+     * `Allocation` maps request allocations: `id`, `requestId`, `resourceId`, `startTime`, and `endTime`.
+   * **Repositories (`LocationRequestRepository.java` and `AllocationRepository.java` in `repository` package):**
+     * `LocationRequestRepository` provides sorting by status and priority.
+     * `AllocationRepository` contains a custom `@Query` check to detect overlapping booking allocations.
+     * `ResourceRepository` contains a derived query to filter location resources by type, category, and capacity.
+   * **REST Controller & Logic (`LocationController.java` in `controller` package):**
+     * Exposes `POST /api/locations/request` to save new requests under `"PENDING"` status.
+     * Exposes `POST /api/locations/process-batch` executing the batch scheduling algorithm. It matches location requests (prioritizing lecturers) against suitable resources, validating overlaps using `countOverlaps`, and creating `Allocation` logs while resolving remaining requests to `"CONFLICT"`.
+
 ---
 
 ## Developer Guidelines

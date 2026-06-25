@@ -1,0 +1,78 @@
+package com.innov8.AssetSync.controller;
+
+import com.innov8.AssetSync.model.Allocation;
+import com.innov8.AssetSync.model.LocationRequest;
+import com.innov8.AssetSync.model.Resource;
+import com.innov8.AssetSync.repository.AllocationRepository;
+import com.innov8.AssetSync.repository.LocationRequestRepository;
+import com.innov8.AssetSync.repository.ResourceRepository;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/locations")
+@CrossOrigin(origins = "http://localhost:5173")
+public class LocationController {
+
+    private final ResourceRepository resourceRepository;
+    private final LocationRequestRepository locationRequestRepository;
+    private final AllocationRepository allocationRepository;
+
+    public LocationController(ResourceRepository resourceRepository,
+                              LocationRequestRepository locationRequestRepository,
+                              AllocationRepository allocationRepository) {
+        this.resourceRepository = resourceRepository;
+        this.locationRequestRepository = locationRequestRepository;
+        this.allocationRepository = allocationRepository;
+    }
+
+    @PostMapping("/request")
+    public LocationRequest createRequest(@RequestBody LocationRequest request) {
+        request.setStatus("PENDING");
+        return locationRequestRepository.save(request);
+    }
+
+    @PostMapping("/process-batch")
+    public String processBatch() {
+        List<LocationRequest> pendingRequests = locationRequestRepository.findByStatusOrderByPriorityAsc("PENDING");
+
+        for (LocationRequest request : pendingRequests) {
+            List<Resource> matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
+                    Resource.ResourceType.LOCATION,
+                    request.getRequestedCategory(),
+                    request.getStudentCount()
+            );
+
+            boolean allocated = false;
+            for (Resource room : matchingRooms) {
+                int overlapCount = allocationRepository.countOverlaps(
+                        room.getId(),
+                        request.getStartTime(),
+                        request.getEndTime()
+                );
+
+                if (overlapCount == 0) {
+                    Allocation allocation = new Allocation();
+                    allocation.setRequestId(request.getId());
+                    allocation.setResourceId(room.getId());
+                    allocation.setStartTime(request.getStartTime());
+                    allocation.setEndTime(request.getEndTime());
+                    allocationRepository.save(allocation);
+
+                    request.setStatus("ALLOCATED");
+                    locationRequestRepository.save(request);
+                    allocated = true;
+                    break;
+                }
+            }
+
+            if (!allocated) {
+                request.setStatus("CONFLICT");
+                locationRequestRepository.save(request);
+            }
+        }
+
+        return "Batch Process Complete.";
+    }
+}

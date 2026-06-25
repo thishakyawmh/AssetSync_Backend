@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface ResourceRepository extends JpaRepository<Resource, Long> {
     List<Resource> findByResourceType(Resource.ResourceType resourceType);
+
+    List<Resource> findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(Resource.ResourceType resourceType, String category, Integer capacity);
 }
