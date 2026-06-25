@@ -75,6 +75,18 @@ The initial backend foundation has been built with the following components unde
      * Exposes `POST /api/locations/request` to save new requests under `"PENDING"` status.
      * Exposes `POST /api/locations/process-batch` executing the batch scheduling algorithm. It matches location requests (prioritizing lecturers) against suitable resources, validating overlaps using `countOverlaps`, and creating `Allocation` logs while resolving remaining requests to `"CONFLICT"`.
 
+8. **Alternative Suggestion Engine (Feature 4):**
+   * **Database Schema Specifications & DTOs (`ConflictResponse.java` in `model` package):**
+     * Represents a standardized conflict response structure.
+     * Fields: `message` (String), `alternativeResources` (List of Resource), and `alternativeTimes` (List of String).
+   * **Logic & Service Layer (`ConflictResolutionService.java` in `service` package):**
+     * `findAlternativeLocations`: Finds up to 3 location resources under the requested category/capacity that are free during the specified time.
+     * `findAlternativeEquipment`: Finds up to 3 equipment resources under the requested category that have quantity greater than or equal to the requested amount.
+   * **REST Controller Modifications (`LocationController.java` & `EquipmentController.java`):**
+     * Real-time checks are executed on submission. If a resource conflict or capacity/inventory limit is reached, a `409 Conflict` is returned containing the `ConflictResponse` DTO with alternatives.
+   * **Frontend User Interface Component (`AlternativeModal.jsx` in `components` package):**
+     * A polished Material-UI Dialog showing the warning alert, listing the recommended resource cards, and featuring a "Book This Instead" option to automatically re-submit and confirm bookings.
+
 ---
 
 ## Developer Guidelines
