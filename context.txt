@@ -87,6 +87,14 @@ The initial backend foundation has been built with the following components unde
    * **Frontend User Interface Component (`AlternativeModal.jsx` in `components` package):**
      * A polished Material-UI Dialog showing the warning alert, listing the recommended resource cards, and featuring a "Book This Instead" option to automatically re-submit and confirm bookings.
 
+9. **Unified Master Calendar View (Feature 5):**
+   * **Database Schema Specifications & DTOs (`CalendarEvent.java` in `model` package):**
+     * Java record representing a unified scheduled event.
+     * Fields: `id`, `title`, `start`, `end`, and `resourceType` (e.g., `"LOCATION"`, `"EQUIPMENT"`).
+   * **REST Controller (`CalendarController.java` in `controller` package):**
+     * Exposes `GET /api/calendar/events`.
+     * Aggregates all location allocations and equipment bookings into a single, chronologically sorted list.
+
 ---
 
 ## Developer Guidelines
