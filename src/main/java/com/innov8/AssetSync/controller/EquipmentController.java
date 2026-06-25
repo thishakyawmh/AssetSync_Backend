@@ -8,19 +8,26 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.innov8.AssetSync.model.ConflictResponse;
+import com.innov8.AssetSync.service.ConflictResolutionService;
+import java.util.List;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/equipment")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "*")
 public class EquipmentController {
 
     private final ResourceRepository resourceRepository;
     private final BookingRequestRepository bookingRequestRepository;
+    private final ConflictResolutionService conflictResolutionService;
 
-    public EquipmentController(ResourceRepository resourceRepository, BookingRequestRepository bookingRequestRepository) {
+    public EquipmentController(ResourceRepository resourceRepository,
+                               BookingRequestRepository bookingRequestRepository,
+                               ConflictResolutionService conflictResolutionService) {
         this.resourceRepository = resourceRepository;
         this.bookingRequestRepository = bookingRequestRepository;
+        this.conflictResolutionService = conflictResolutionService;
     }
 
     @PostMapping("/book")
@@ -48,8 +55,18 @@ public class EquipmentController {
             request.setStatus("CONFLICT");
             bookingRequestRepository.save(request);
 
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body("Insufficient inventory. Requested: " + request.getRequestedQuantity() + ", Available: " + availableQuantity);
+            List<Resource> alternatives = conflictResolutionService.findAlternativeEquipment(
+                    resource.getCategory(),
+                    request.getRequestedQuantity()
+            );
+
+            ConflictResponse conflictResponse = new ConflictResponse(
+                    "Insufficient inventory. Requested: " + request.getRequestedQuantity() + ", Available: " + availableQuantity,
+                    alternatives,
+                    List.of()
+            );
+
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(conflictResponse);
         }
     }
 }
