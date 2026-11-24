@@ -92,3 +92,13 @@ The initial backend foundation has been built with the following components unde
 ## Developer Guidelines
 > [!IMPORTANT]
 > To maintain clarity and alignment across the team, please ensure you update this document whenever you introduce new features, changes, or database schema modifications.
+
+
+## Engineering hardening updates (November 2026)
+
+- Booking request entities now validate required fields, positive quantities/capacity counts, bounded text fields, and valid priority ranges through Jakarta Bean Validation.
+- Equipment booking is transactional and acquires a pessimistic write lock on the resource row before decrementing inventory, preventing concurrent requests from overselling the same stock.
+- Location request payloads validate start/end ordering. The batch processor runs transactionally and locks each candidate room before checking schedule overlaps and writing allocations.
+- Database connection values and server port are configurable through environment variables. SQL statement logging is disabled by default.
+- Added Maven CI with a temporary MySQL service.
+- Production limitation: authentication and role-based authorization are not implemented yet. Requester names and roles are still client-provided values and must not be treated as verified identity.
