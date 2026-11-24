@@ -32,6 +32,10 @@ public class LocationRequest {
     @Column(name = "requester_name", nullable = false)
     private String requesterName;
 
+    @Positive
+    @Column(name = "preferred_resource_id")
+    private Long preferredResourceId;
+
     @NotNull
     @Min(1)
     @Max(2)
