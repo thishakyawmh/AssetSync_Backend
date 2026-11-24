@@ -90,7 +90,12 @@ public class LocationController {
     public String processBatch() {
         List<LocationRequest> pendingRequests = locationRequestRepository.findByStatusOrderByPriorityAsc("PENDING");
 
-        for (LocationRequest request : pendingRequests) {
+        for (LocationRequest pendingRequest : pendingRequests) {
+            LocationRequest request = locationRequestRepository.findByIdForUpdate(pendingRequest.getId()).orElse(null);
+            if (request == null || !"PENDING".equals(request.getStatus())) {
+                continue;
+            }
+
             List<Resource> matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
                     Resource.ResourceType.LOCATION,
                     request.getRequestedCategory(),
