@@ -10,13 +10,15 @@ import com.innov8.AssetSync.model.ConflictResponse;
 import com.innov8.AssetSync.service.ConflictResolutionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/locations")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${app.cors.allowed-origins:http://localhost:5173}")
 public class LocationController {
 
     private final ResourceRepository resourceRepository;
@@ -35,12 +37,30 @@ public class LocationController {
     }
 
     @PostMapping("/request")
-    public ResponseEntity<?> createRequest(@RequestBody LocationRequest request) {
-        List<Resource> matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
-                Resource.ResourceType.LOCATION,
-                request.getRequestedCategory(),
-                request.getStudentCount()
-        );
+    public ResponseEntity<?> createRequest(@Valid @RequestBody LocationRequest request) {
+        if (!request.getStartTime().isBefore(request.getEndTime())) {
+            return ResponseEntity.badRequest().body("End time must be later than start time");
+        }
+        List<Resource> matchingRooms;
+        if (request.getPreferredResourceId() != null) {
+            Resource preferredRoom = resourceRepository.findById(request.getPreferredResourceId()).orElse(null);
+            if (
+                    preferredRoom == null ||
+                    preferredRoom.getResourceType() != Resource.ResourceType.LOCATION ||
+                    !preferredRoom.getCategory().equalsIgnoreCase(request.getRequestedCategory()) ||
+                    preferredRoom.getCapacity() == null ||
+                    preferredRoom.getCapacity() < request.getStudentCount()
+            ) {
+                return ResponseEntity.badRequest().body("Selected alternative room is not valid for this request");
+            }
+            matchingRooms = List.of(preferredRoom);
+        } else {
+            matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
+                    Resource.ResourceType.LOCATION,
+                    request.getRequestedCategory(),
+                    request.getStudentCount()
+            );
+        }
 
         boolean hasAvailableRoom = false;
         for (Resource room : matchingRooms) {
@@ -81,20 +101,33 @@ public class LocationController {
     }
 
     @PostMapping("/process-batch")
+    @Transactional
     public String processBatch() {
         List<LocationRequest> pendingRequests = locationRequestRepository.findByStatusOrderByPriorityAsc("PENDING");
 
-        for (LocationRequest request : pendingRequests) {
-            List<Resource> matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
-                    Resource.ResourceType.LOCATION,
-                    request.getRequestedCategory(),
-                    request.getStudentCount()
-            );
+        for (LocationRequest pendingRequest : pendingRequests) {
+            LocationRequest request = locationRequestRepository.findByIdForUpdate(pendingRequest.getId()).orElse(null);
+            if (request == null || !"PENDING".equals(request.getStatus())) {
+                continue;
+            }
+
+            List<Resource> matchingRooms = request.getPreferredResourceId() != null
+                    ? resourceRepository.findById(request.getPreferredResourceId()).stream().toList()
+                    : resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
+                            Resource.ResourceType.LOCATION,
+                            request.getRequestedCategory(),
+                            request.getStudentCount()
+                    );
 
             boolean allocated = false;
             for (Resource room : matchingRooms) {
+                Resource lockedRoom = resourceRepository.findByIdForUpdate(room.getId()).orElse(null);
+                if (lockedRoom == null) {
+                    continue;
+                }
+
                 int overlapCount = allocationRepository.countOverlaps(
-                        room.getId(),
+                        lockedRoom.getId(),
                         request.getStartTime(),
                         request.getEndTime()
                 );
@@ -102,7 +135,7 @@ public class LocationController {
                 if (overlapCount == 0) {
                     Allocation allocation = new Allocation();
                     allocation.setRequestId(request.getId());
-                    allocation.setResourceId(room.getId());
+                    allocation.setResourceId(lockedRoom.getId());
                     allocation.setStartTime(request.getStartTime());
                     allocation.setEndTime(request.getEndTime());
                     allocationRepository.save(allocation);
