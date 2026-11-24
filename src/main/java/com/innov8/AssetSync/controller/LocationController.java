@@ -41,11 +41,26 @@ public class LocationController {
         if (!request.getStartTime().isBefore(request.getEndTime())) {
             return ResponseEntity.badRequest().body("End time must be later than start time");
         }
-        List<Resource> matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
-                Resource.ResourceType.LOCATION,
-                request.getRequestedCategory(),
-                request.getStudentCount()
-        );
+        List<Resource> matchingRooms;
+        if (request.getPreferredResourceId() != null) {
+            Resource preferredRoom = resourceRepository.findById(request.getPreferredResourceId()).orElse(null);
+            if (
+                    preferredRoom == null ||
+                    preferredRoom.getResourceType() != Resource.ResourceType.LOCATION ||
+                    !preferredRoom.getCategory().equalsIgnoreCase(request.getRequestedCategory()) ||
+                    preferredRoom.getCapacity() == null ||
+                    preferredRoom.getCapacity() < request.getStudentCount()
+            ) {
+                return ResponseEntity.badRequest().body("Selected alternative room is not valid for this request");
+            }
+            matchingRooms = List.of(preferredRoom);
+        } else {
+            matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
+                    Resource.ResourceType.LOCATION,
+                    request.getRequestedCategory(),
+                    request.getStudentCount()
+            );
+        }
 
         boolean hasAvailableRoom = false;
         for (Resource room : matchingRooms) {
@@ -96,11 +111,13 @@ public class LocationController {
                 continue;
             }
 
-            List<Resource> matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
-                    Resource.ResourceType.LOCATION,
-                    request.getRequestedCategory(),
-                    request.getStudentCount()
-            );
+            List<Resource> matchingRooms = request.getPreferredResourceId() != null
+                    ? resourceRepository.findById(request.getPreferredResourceId()).stream().toList()
+                    : resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
+                            Resource.ResourceType.LOCATION,
+                            request.getRequestedCategory(),
+                            request.getStudentCount()
+                    );
 
             boolean allocated = false;
             for (Resource room : matchingRooms) {
