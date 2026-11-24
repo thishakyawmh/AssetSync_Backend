@@ -10,6 +10,8 @@ import com.innov8.AssetSync.model.ConflictResponse;
 import com.innov8.AssetSync.service.ConflictResolutionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,7 +37,10 @@ public class LocationController {
     }
 
     @PostMapping("/request")
-    public ResponseEntity<?> createRequest(@RequestBody LocationRequest request) {
+    public ResponseEntity<?> createRequest(@Valid @RequestBody LocationRequest request) {
+        if (!request.getStartTime().isBefore(request.getEndTime())) {
+            return ResponseEntity.badRequest().body("End time must be later than start time");
+        }
         List<Resource> matchingRooms = resourceRepository.findByResourceTypeAndCategoryAndCapacityGreaterThanEqual(
                 Resource.ResourceType.LOCATION,
                 request.getRequestedCategory(),
@@ -81,6 +86,7 @@ public class LocationController {
     }
 
     @PostMapping("/process-batch")
+    @Transactional
     public String processBatch() {
         List<LocationRequest> pendingRequests = locationRequestRepository.findByStatusOrderByPriorityAsc("PENDING");
 
@@ -93,8 +99,13 @@ public class LocationController {
 
             boolean allocated = false;
             for (Resource room : matchingRooms) {
+                Resource lockedRoom = resourceRepository.findByIdForUpdate(room.getId()).orElse(null);
+                if (lockedRoom == null) {
+                    continue;
+                }
+
                 int overlapCount = allocationRepository.countOverlaps(
-                        room.getId(),
+                        lockedRoom.getId(),
                         request.getStartTime(),
                         request.getEndTime()
                 );
@@ -102,7 +113,7 @@ public class LocationController {
                 if (overlapCount == 0) {
                     Allocation allocation = new Allocation();
                     allocation.setRequestId(request.getId());
-                    allocation.setResourceId(room.getId());
+                    allocation.setResourceId(lockedRoom.getId());
                     allocation.setStartTime(request.getStartTime());
                     allocation.setEndTime(request.getEndTime());
                     allocationRepository.save(allocation);
