@@ -62,3 +62,8 @@ GitHub Actions runs the Maven verification lifecycle against a temporary MySQL s
 ## Security note
 
 The current API does not yet implement user authentication or role-based authorization. Do not expose write endpoints publicly or treat requester-supplied names/roles as verified identity. Add an authentication provider and server-side authorization before production deployment.
+
+
+## Security status
+
+This academic API currently does not implement user authentication or server-side role authorization. The booking and batch-processing endpoints must not be exposed to untrusted networks as a production service until identity verification, resource-level authorization, and administrator-only batch processing are implemented. Frontend role checks are not a security boundary.
